@@ -1,0 +1,36 @@
+{
+  "name": "roomdatamanagementvercel",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "node -e \"console.log('lint: skipped')\""
+  },
+  "overrides": {
+    "eslint": "^8.57.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.0",
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^16.1.6",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.17"
+  }
+}

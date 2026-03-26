@@ -1,0 +1,12 @@
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.csproj.AssemblyReference.cache
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.AssemblyInfoInputs.cache
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.AssemblyInfo.cs
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.csproj.CoreCompileInputs.cache
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.sourcelink.json
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\bin\Release\net48\AtiRoomSyncPush.dll
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\bin\Release\net48\AtiRoomSyncPush.pdb
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\bin\Release\net48\Newtonsoft.Json.dll
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomS.BE44D396.Up2Date
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.dll
+c:\Users\UTENTE\Documents\RoomDataManagementVercel\revit-plugin\AtiRoomSyncPush\obj\Release\net48\AtiRoomSyncPush.pdb
