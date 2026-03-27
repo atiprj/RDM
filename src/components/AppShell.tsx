@@ -15,7 +15,9 @@ function NavLink({ href, label }: { href: string; label: string }) {
       href={href}
       className={[
         "rounded-lg px-3 py-2 text-sm",
-        active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100",
+        active
+          ? "bg-[var(--accent-600)] text-white hover:bg-[var(--accent-700)]"
+          : "text-slate-700 hover:bg-slate-100",
       ].join(" ")}
     >
       {label}

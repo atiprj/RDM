@@ -7,6 +7,13 @@ body {
   height: 100%;
 }
 
+:root {
+  --bg-main: #f8fafc;
+  --text-main: #0f172a;
+  --accent-600: #334155;
+  --accent-700: #1e293b;
+}
+
 body[data-theme-mode="light"] {
   --bg-main: #f8fafc;
   --text-main: #0f172a;
@@ -35,5 +42,30 @@ body[data-theme-accent="red"] {
 body {
   background-color: var(--bg-main);
   color: var(--text-main);
+}
+
+/* Global dark-mode remap for existing Tailwind utility classes */
+body[data-theme-mode="dark"] .bg-white {
+  background-color: #111827 !important;
+}
+body[data-theme-mode="dark"] .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+body[data-theme-mode="dark"] .text-slate-900 {
+  color: #e5e7eb !important;
+}
+body[data-theme-mode="dark"] .text-slate-700,
+body[data-theme-mode="dark"] .text-slate-600,
+body[data-theme-mode="dark"] .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+body[data-theme-mode="dark"] .border-slate-300,
+body[data-theme-mode="dark"] .border-slate-200,
+body[data-theme-mode="dark"] .border-slate-100 {
+  border-color: #374151 !important;
+}
+body[data-theme-mode="dark"] .hover\:bg-slate-50:hover,
+body[data-theme-mode="dark"] .hover\:bg-slate-100:hover {
+  background-color: #1f2937 !important;
 }
 
