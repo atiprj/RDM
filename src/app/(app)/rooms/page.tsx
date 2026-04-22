@@ -158,6 +158,7 @@ export default function RoomsPage() {
 
     const payload = rows.map((row) => row);
     let importedRows = 0;
+    const failedRooms: string[] = [];
     for (let i = 0; i < payload.length; i += IMPORT_CHUNK_SIZE) {
       const chunk = payload.slice(i, i + IMPORT_CHUNK_SIZE);
       let ok = false;
@@ -168,9 +169,19 @@ export default function RoomsPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ projectId: selectedProjectId, rows: chunk }),
         });
-        const json = (await res.json()) as { ok: boolean; error?: string; synced?: number };
+        const json = (await res.json()) as {
+          ok: boolean;
+          error?: string;
+          synced?: number;
+          failed_count?: number;
+          failed_rooms?: { room_number?: string }[];
+        };
         if (json.ok) {
           importedRows += Number(json.synced ?? 0);
+          for (const fr of json.failed_rooms ?? []) {
+            const rn = String(fr.room_number ?? "").trim();
+            if (rn) failedRooms.push(rn);
+          }
           ok = true;
           break;
         }
@@ -184,7 +195,15 @@ export default function RoomsPage() {
         return;
       }
     }
-    setError(`Import completato: ${importedRows} righe sincronizzate.`);
+    if (failedRooms.length) {
+      const preview = failedRooms.slice(0, 10).join(", ");
+      const suffix = failedRooms.length > 10 ? ", ..." : "";
+      setError(
+        `Import parziale: ${importedRows} righe sincronizzate, ${failedRooms.length} fallite (es: ${preview}${suffix}).`
+      );
+    } else {
+      setError(`Import completato: ${importedRows} righe sincronizzate.`);
+    }
     await refresh();
   }
 

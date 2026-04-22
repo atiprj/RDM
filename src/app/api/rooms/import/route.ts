@@ -6,6 +6,17 @@ type ImportBody = {
   rows?: Record<string, unknown>[];
 };
 
+type RoomUpsertRow = {
+  project_id: number;
+  room_number: string;
+  room_name_planned: string;
+  parameters: Record<string, string>;
+  is_synced: boolean;
+  area: number | null;
+};
+
+const UPSERT_CHUNK_SIZE = 100;
+
 export async function POST(req: Request) {
   const supabase = getSupabaseAdmin();
   const body = (await req.json().catch(() => null)) as ImportBody | null;
@@ -30,7 +41,7 @@ export async function POST(req: Request) {
 
   const mappedParams = (mapsRes.data ?? []).map((m: any) => String(m.db_column_name));
 
-  const byRoomNumber = new Map<string, Record<string, unknown>>();
+  const byRoomNumber = new Map<string, RoomUpsertRow>();
   for (const row of rows) {
     const numRaw = row["Number"];
     const num = String(numRaw ?? "").trim();
@@ -62,23 +73,46 @@ export async function POST(req: Request) {
     });
   }
 
-  const bulk = Array.from(byRoomNumber.values()) as Record<string, unknown>[];
+  const bulk = Array.from(byRoomNumber.values());
 
   if (!bulk.length) {
     return NextResponse.json({ ok: false, error: "Nessuna riga valida trovata" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("rooms")
-    .upsert(bulk, { onConflict: "project_id,room_number" });
+  let synced = 0;
+  const failed: { room_number: string; reason: string }[] = [];
+  for (let i = 0; i < bulk.length; i += UPSERT_CHUNK_SIZE) {
+    const chunk = bulk.slice(i, i + UPSERT_CHUNK_SIZE);
+    const { error } = await supabase
+      .from("rooms")
+      .upsert(chunk, { onConflict: "project_id,room_number" });
 
-  if (error) {
-    return NextResponse.json(
-      { ok: false, error: `Errore Supabase: ${error.message}` },
-      { status: 500 }
-    );
+    if (!error) {
+      synced += chunk.length;
+      continue;
+    }
+
+    // Fallback: isolate bad rows so a single failure does not block the whole chunk.
+    for (const row of chunk) {
+      const single = await supabase
+        .from("rooms")
+        .upsert([row], { onConflict: "project_id,room_number" });
+      if (single.error) {
+        failed.push({
+          room_number: row.room_number,
+          reason: single.error.message,
+        });
+      } else {
+        synced += 1;
+      }
+    }
   }
 
-  return NextResponse.json({ ok: true, synced: bulk.length });
+  return NextResponse.json({
+    ok: true,
+    synced,
+    failed_count: failed.length,
+    failed_rooms: failed.slice(0, 50),
+  });
 }
 
