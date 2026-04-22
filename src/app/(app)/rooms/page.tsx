@@ -16,7 +16,11 @@ type RoomRow = {
 };
 
 type MappingRow = { db_column_name: string };
-const IMPORT_CHUNK_SIZE = 300;
+const IMPORT_CHUNK_SIZE = 100;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function formatLastSync(v: string | null) {
   if (!v) return "Mai";
@@ -153,21 +157,34 @@ export default function RoomsPage() {
     });
 
     const payload = rows.map((row) => row);
+    let importedRows = 0;
     for (let i = 0; i < payload.length; i += IMPORT_CHUNK_SIZE) {
       const chunk = payload.slice(i, i + IMPORT_CHUNK_SIZE);
-      const res = await fetch("/api/rooms/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: selectedProjectId, rows: chunk }),
-      });
-      const json = (await res.json()) as { ok: boolean; error?: string; synced?: number };
-      if (!json.ok) {
+      let ok = false;
+      let lastErr = "Errore import.";
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const res = await fetch("/api/rooms/import", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ projectId: selectedProjectId, rows: chunk }),
+        });
+        const json = (await res.json()) as { ok: boolean; error?: string; synced?: number };
+        if (json.ok) {
+          importedRows += Number(json.synced ?? 0);
+          ok = true;
+          break;
+        }
+        lastErr = json.error ?? "Errore import.";
+        if (attempt < 3) await sleep(300 * attempt);
+      }
+      if (!ok) {
         const chunkIdx = Math.floor(i / IMPORT_CHUNK_SIZE) + 1;
         const chunkTot = Math.ceil(payload.length / IMPORT_CHUNK_SIZE);
-        setError(`${json.error ?? "Errore import."} (batch ${chunkIdx}/${chunkTot})`);
+        setError(`${lastErr} (batch ${chunkIdx}/${chunkTot})`);
         return;
       }
     }
+    setError(`Import completato: ${importedRows} righe sincronizzate.`);
     await refresh();
   }
 
