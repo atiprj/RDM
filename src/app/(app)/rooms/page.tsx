@@ -45,6 +45,7 @@ export default function RoomsPage() {
   const [mappedParams, setMappedParams] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
 
   const filteredRooms = useMemo(() => {
@@ -148,6 +149,7 @@ export default function RoomsPage() {
   async function importExcel(file: File) {
     if (!selectedProjectId) return;
     setError(null);
+    setNotice(null);
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0] ?? ""];
@@ -158,7 +160,7 @@ export default function RoomsPage() {
 
     const payload = rows.map((row) => row);
     let importedRows = 0;
-    const failedRooms: string[] = [];
+    const failedRooms: { room_number: string; reason?: string }[] = [];
     for (let i = 0; i < payload.length; i += IMPORT_CHUNK_SIZE) {
       const chunk = payload.slice(i, i + IMPORT_CHUNK_SIZE);
       let ok = false;
@@ -174,13 +176,13 @@ export default function RoomsPage() {
           error?: string;
           synced?: number;
           failed_count?: number;
-          failed_rooms?: { room_number?: string }[];
+          failed_rooms?: { room_number?: string; reason?: string }[];
         };
         if (json.ok) {
           importedRows += Number(json.synced ?? 0);
           for (const fr of json.failed_rooms ?? []) {
             const rn = String(fr.room_number ?? "").trim();
-            if (rn) failedRooms.push(rn);
+            if (rn) failedRooms.push({ room_number: rn, reason: fr.reason });
           }
           ok = true;
           break;
@@ -196,13 +198,16 @@ export default function RoomsPage() {
       }
     }
     if (failedRooms.length) {
-      const preview = failedRooms.slice(0, 10).join(", ");
-      const suffix = failedRooms.length > 10 ? ", ..." : "";
-      setError(
-        `Import parziale: ${importedRows} righe sincronizzate, ${failedRooms.length} fallite (es: ${preview}${suffix}).`
+      const preview = failedRooms
+        .slice(0, 5)
+        .map((x) => (x.reason ? `${x.room_number} (${x.reason})` : x.room_number))
+        .join(", ");
+      const suffix = failedRooms.length > 5 ? ", ..." : "";
+      setNotice(
+        `Import parziale: ${importedRows} righe sincronizzate, ${failedRooms.length} fallite. Esempi: ${preview}${suffix}`
       );
     } else {
-      setError(`Import completato: ${importedRows} righe sincronizzate.`);
+      setNotice(`Import completato: ${importedRows} righe sincronizzate.`);
     }
     await refresh();
   }
@@ -234,6 +239,11 @@ export default function RoomsPage() {
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+      ) : null}
+      {notice ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          {notice}
+        </div>
       ) : null}
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
