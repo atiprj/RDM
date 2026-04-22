@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { useProjectContext } from "@/lib/projectContext";
 
 type Item = { id: number; item_code: string; item_description: string | null };
+const IMPORT_CHUNK_SIZE = 300;
 
 export default function ItemCatalogPage() {
   const { selectedProjectId } = useProjectContext();
@@ -66,14 +67,22 @@ export default function ItemCatalogPage() {
       item_code: String(r["item_code"] ?? "").trim(),
       item_description: String(r["item_description"] ?? "").trim(),
     }));
-    const res = await fetch("/api/items/import", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ projectId: selectedProjectId, rows: norm }),
-    });
-    const json = (await res.json()) as { ok: boolean; error?: string };
-    if (!json.ok) setError(json.error ?? "Errore import.");
-    else await refresh();
+    for (let i = 0; i < norm.length; i += IMPORT_CHUNK_SIZE) {
+      const chunk = norm.slice(i, i + IMPORT_CHUNK_SIZE);
+      const res = await fetch("/api/items/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectId: selectedProjectId, rows: chunk }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: string };
+      if (!json.ok) {
+        const chunkIdx = Math.floor(i / IMPORT_CHUNK_SIZE) + 1;
+        const chunkTot = Math.ceil(norm.length / IMPORT_CHUNK_SIZE);
+        setError(`${json.error ?? "Errore import."} (batch ${chunkIdx}/${chunkTot})`);
+        return;
+      }
+    }
+    await refresh();
   }
 
   async function addSingle(form: HTMLFormElement) {

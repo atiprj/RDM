@@ -16,6 +16,7 @@ type RoomRow = {
 };
 
 type MappingRow = { db_column_name: string };
+const IMPORT_CHUNK_SIZE = 300;
 
 function formatLastSync(v: string | null) {
   if (!v) return "Mai";
@@ -149,14 +150,22 @@ export default function RoomsPage() {
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
 
     const payload = rows.map((row) => row);
-    const res = await fetch("/api/rooms/import", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ projectId: selectedProjectId, rows: payload }),
-    });
-    const json = (await res.json()) as { ok: boolean; error?: string; synced?: number };
-    if (!json.ok) setError(json.error ?? "Errore import.");
-    else await refresh();
+    for (let i = 0; i < payload.length; i += IMPORT_CHUNK_SIZE) {
+      const chunk = payload.slice(i, i + IMPORT_CHUNK_SIZE);
+      const res = await fetch("/api/rooms/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectId: selectedProjectId, rows: chunk }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: string; synced?: number };
+      if (!json.ok) {
+        const chunkIdx = Math.floor(i / IMPORT_CHUNK_SIZE) + 1;
+        const chunkTot = Math.ceil(payload.length / IMPORT_CHUNK_SIZE);
+        setError(`${json.error ?? "Errore import."} (batch ${chunkIdx}/${chunkTot})`);
+        return;
+      }
+    }
+    await refresh();
   }
 
   async function deleteSelected() {
