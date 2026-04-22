@@ -36,6 +36,13 @@ export default function DashboardPage() {
           <div className="mt-1 text-sm text-slate-600">Gestione locali + import/export Excel.</div>
         </Link>
         <Link
+          href="/room-inspector"
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50"
+        >
+          <div className="text-lg font-semibold">🧭 Room Inspector</div>
+          <div className="mt-1 text-sm text-slate-600">Consultazione locale e parametri associati.</div>
+        </Link>
+        <Link
           href="/mappings"
           className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50"
         >

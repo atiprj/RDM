@@ -103,6 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="mt-4 flex flex-wrap gap-2">
             <NavLink href="/project" label={`📊 ${t("project")}`} />
             <NavLink href="/rooms" label={`📍 ${t("rooms")}`} />
+            <NavLink href="/room-inspector" label="🧭 Room Inspector" />
             <NavLink href="/mappings" label={`🔗 ${t("mappings")}`} />
             <NavLink href="/item-catalog" label={`📦 ${t("itemCatalog")}`} />
             <NavLink href="/system" label={`⚙️ ${t("system")}`} />
