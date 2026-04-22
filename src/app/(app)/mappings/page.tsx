@@ -61,6 +61,11 @@ export default function MappingsPage() {
     const sheet = wb.Sheets[wb.SheetNames[0] ?? ""];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
     const norm = rows.map((r) => ({
+      project_id:
+        r["project_id"] == null || String(r["project_id"]).trim() === ""
+          ? null
+          : Number(r["project_id"]),
+      project_code: String(r["project_code"] ?? "").trim(),
       db_column_name: String(r["db_column_name"] ?? "").trim(),
       revit_parameter_name: String(r["revit_parameter_name"] ?? "").trim(),
     }));
@@ -145,7 +150,9 @@ export default function MappingsPage() {
             />
             <div className="text-xs text-slate-600">
               Colonne richieste: <span className="font-mono">db_column_name</span>,{" "}
-              <span className="font-mono">revit_parameter_name</span>
+              <span className="font-mono">revit_parameter_name</span>. Opzionali per import multi-progetto:{" "}
+              <span className="font-mono">project_id</span> oppure{" "}
+              <span className="font-mono">project_code</span>.
             </div>
           </div>
         </div>
