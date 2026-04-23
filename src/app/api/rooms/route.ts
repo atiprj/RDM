@@ -83,10 +83,29 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
+  const deleteAll = url.searchParams.get("all") === "true";
+  const projectId = normalizeProjectId(url.searchParams.get("projectId"));
   const ids = url.searchParams
     .getAll("id")
     .map((x) => Number(x))
     .filter((n) => Number.isFinite(n));
+
+  if (deleteAll) {
+    if (!projectId) {
+      return NextResponse.json(
+        { ok: false, error: "projectId obbligatorio per eliminazione totale" },
+        { status: 400 }
+      );
+    }
+    const { error } = await supabase.from("rooms").delete().eq("project_id", projectId);
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: `Errore Supabase: ${error.message}` },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   if (!ids.length) {
     return NextResponse.json({ ok: false, error: "Nessun id fornito" }, { status: 400 });

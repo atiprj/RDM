@@ -230,6 +230,29 @@ export default function RoomsPage() {
     }
   }
 
+  async function deleteAllRooms() {
+    if (!selectedProjectId) return;
+    if (!rooms.length) {
+      setError("Non ci sono locali da eliminare.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Vuoi davvero eliminare tutti i ${rooms.length} locali del progetto corrente?`
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setNotice(null);
+    const res = await fetch(`/api/rooms?all=true&projectId=${selectedProjectId}`, { method: "DELETE" });
+    const json = (await res.json()) as { ok: boolean; error?: string };
+    if (!json.ok) {
+      setError(json.error ?? "Errore eliminazione totale locali.");
+    } else {
+      setNotice("Tutti i locali del progetto sono stati eliminati.");
+      await refresh();
+    }
+  }
+
   return (
     <main className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -321,12 +344,21 @@ export default function RoomsPage() {
               Status: ✅ Sincronizzato | ⚠️ Modificato Web | ❗ Non in Revit | ❌ Mai Sincronizzato
             </div>
           </div>
-          <button
-            onClick={deleteSelected}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-          >
-            🗑️ Delete Selected Rooms
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={deleteSelected}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+            >
+              🗑️ Delete Selected Rooms
+            </button>
+            <button
+              onClick={deleteAllRooms}
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100"
+              disabled={!selectedProjectId || rooms.length === 0}
+            >
+              🧨 Elimina tutti i locali
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
