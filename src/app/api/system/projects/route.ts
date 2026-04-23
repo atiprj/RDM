@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { isSuperAdminUser } from "@/lib/projectAccess";
 
 async function requireAdmin() {
   const cookieStore = await cookies();
@@ -8,10 +9,14 @@ async function requireAdmin() {
   if (!email) return { ok: false as const, status: 401, error: "Unauthorized" };
 
   const supabase = getSupabaseAdmin();
-  const me = await supabase.from("user_permissions").select("email,is_admin").eq("email", email).limit(1);
+  const me = await supabase
+    .from("user_permissions")
+    .select("email,is_admin,is_super_admin")
+    .eq("email", email)
+    .limit(1);
   if (me.error) return { ok: false as const, status: 500, error: me.error.message };
   const user = me.data?.[0] as any;
-  if (!user?.is_admin) return { ok: false as const, status: 403, error: "Forbidden" };
+  if (!isSuperAdminUser(user)) return { ok: false as const, status: 403, error: "Forbidden" };
   return { ok: true as const, supabase };
 }
 

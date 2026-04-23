@@ -2,18 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useProjectContext } from "@/lib/projectContext";
+import { isProjectAdminUser, isSuperAdminUser } from "@/lib/projectAccess";
 
 type Project = { id: number; project_code: string; project_name: string };
-type UserPerm = { email: string; is_admin: boolean; allowed_projects: number[] | null };
+type UserPerm = {
+  email: string;
+  is_admin?: boolean | null;
+  is_super_admin?: boolean | null;
+  is_project_admin?: boolean | null;
+  allowed_projects: number[] | null;
+};
 
 export default function SystemPage() {
   const { projects, refresh: refreshProjects } = useProjectContext();
-  const [me, setMe] = useState<{ email?: string; is_admin?: boolean } | null>(null);
+  const [me, setMe] = useState<UserPerm | null>(null);
   const [users, setUsers] = useState<UserPerm[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const allProjects = useMemo<Project[]>(() => projects as unknown as Project[], [projects]);
+  const canManageUsers = isSuperAdminUser(me) || isProjectAdminUser(me);
+  const canCreateProjects = isSuperAdminUser(me);
 
   async function refresh() {
     setLoading(true);
@@ -61,12 +70,13 @@ export default function SystemPage() {
   async function authorizeUser(form: HTMLFormElement) {
     const fd = new FormData(form);
     const email = String(fd.get("email") ?? "").toLowerCase().trim();
-    const is_admin = Boolean(fd.get("is_admin"));
+    const is_super_admin = Boolean(fd.get("is_super_admin"));
+    const is_project_admin = Boolean(fd.get("is_project_admin"));
     if (!email.includes("@")) return setError("Email non valida.");
     const res = await fetch("/api/system/users", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, is_admin }),
+      body: JSON.stringify({ email, is_super_admin, is_project_admin }),
     });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) setError(json.error ?? "Errore autorizzazione utente.");
@@ -76,11 +86,15 @@ export default function SystemPage() {
     }
   }
 
-  async function updateUserProjects(email: string, allowed_projects: number[]) {
+  async function updateUserPermissions(
+    email: string,
+    allowed_projects: number[],
+    rolePatch?: { is_super_admin?: boolean; is_project_admin?: boolean }
+  ) {
     const res = await fetch("/api/system/users", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, allowed_projects }),
+      body: JSON.stringify({ email, allowed_projects, ...rolePatch }),
     });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) setError(json.error ?? "Errore aggiornamento permessi.");
@@ -91,10 +105,10 @@ export default function SystemPage() {
     return <div className="text-slate-600">Caricamento...</div>;
   }
 
-  if (!me?.is_admin) {
+  if (!canManageUsers) {
     return (
       <main className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
-        Accesso riservato agli amministratori.
+        Accesso riservato agli amministratori di progetto o super admin.
       </main>
     );
   }
@@ -103,7 +117,9 @@ export default function SystemPage() {
     <main className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold">⚙️ System Management</h1>
-        <p className="mt-2 text-slate-600">Admin: {me.email}</p>
+        <p className="mt-2 text-slate-600">
+          Admin: {me?.email ?? "-"} ({isSuperAdminUser(me) ? "Super Admin" : "Project Admin"})
+        </p>
       </div>
 
       {error ? (
@@ -113,6 +129,11 @@ export default function SystemPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">🏗️ Projects Management</h2>
+          {!canCreateProjects ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Solo il super admin puo creare nuovi progetti.
+            </div>
+          ) : null}
           <form
             className="mt-4 grid gap-3 sm:grid-cols-2"
             onSubmit={(e) => {
@@ -131,7 +152,10 @@ export default function SystemPage() {
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             <div className="sm:col-span-2">
-              <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">
+              <button
+                disabled={!canCreateProjects}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 🚀 Create Project
               </button>
             </div>
@@ -153,8 +177,16 @@ export default function SystemPage() {
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
             />
             <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" name="is_admin" /> Admin
+              <input type="checkbox" name="is_project_admin" /> Project Admin
             </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
+              <input type="checkbox" name="is_super_admin" disabled={!canCreateProjects} /> Super Admin
+            </label>
+            {!canCreateProjects ? (
+              <div className="sm:col-span-3 text-xs text-amber-700">
+                I project admin possono gestire utenti e progetti assegnati, ma non assegnare super admin.
+              </div>
+            ) : null}
             <div className="sm:col-span-3">
               <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">
                 ➕ Authorize User
@@ -176,7 +208,8 @@ export default function SystemPage() {
               key={u.email}
               user={u}
               projects={allProjects}
-              onSave={updateUserProjects}
+              currentUser={me}
+              onSave={updateUserPermissions}
             />
           ))}
         </div>
@@ -187,30 +220,70 @@ export default function SystemPage() {
 
 function UserRow({
   user,
+  currentUser,
   projects,
   onSave,
 }: {
   user: UserPerm;
+  currentUser: UserPerm | null;
   projects: Project[];
-  onSave: (email: string, allowed_projects: number[]) => Promise<void>;
+  onSave: (
+    email: string,
+    allowed_projects: number[],
+    rolePatch?: { is_super_admin?: boolean; is_project_admin?: boolean }
+  ) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<number[]>(
     Array.isArray(user.allowed_projects) ? user.allowed_projects : []
   );
+  const [isSuperAdmin, setIsSuperAdmin] = useState(Boolean(user.is_super_admin ?? user.is_admin));
+  const [isProjectAdmin, setIsProjectAdmin] = useState(Boolean(user.is_project_admin ?? user.is_admin));
+  const currentIsSuper = isSuperAdminUser(currentUser);
+  const targetIsSuper = isSuperAdminUser(user);
+  const canEditTarget = currentIsSuper || !targetIsSuper;
 
   return (
     <div className="rounded-lg border border-slate-200 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="font-medium">{user.email}</div>
-          <div className="text-sm text-slate-600">{user.is_admin ? "Admin" : "User"}</div>
+          <div className="text-sm text-slate-600">
+            {targetIsSuper ? "Super Admin" : isProjectAdmin ? "Project Admin" : "User"}
+          </div>
         </div>
         <button
-          onClick={() => onSave(user.email, selected)}
+          disabled={!canEditTarget}
+          onClick={() =>
+            onSave(user.email, selected, {
+              is_project_admin: isProjectAdmin,
+              ...(currentIsSuper ? { is_super_admin: isSuperAdmin } : {}),
+            })
+          }
           className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800"
         >
           💾 Update Permissions
         </button>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isProjectAdmin}
+            disabled={!canEditTarget}
+            onChange={(e) => setIsProjectAdmin(e.target.checked)}
+          />
+          Project Admin
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isSuperAdmin}
+            disabled={!currentIsSuper || !canEditTarget}
+            onChange={(e) => setIsSuperAdmin(e.target.checked)}
+          />
+          Super Admin
+        </label>
       </div>
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -221,6 +294,7 @@ function UserRow({
               <input
                 type="checkbox"
                 checked={checked}
+                disabled={!canEditTarget}
                 onChange={(e) => {
                   setSelected((prev) =>
                     e.target.checked ? [...prev, p.id] : prev.filter((x) => x !== p.id)

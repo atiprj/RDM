@@ -30,3 +30,11 @@ Apri `http://localhost:3000`.
 - Importa la repository su Vercel.
 - Imposta le variabili ambiente come in `.env.example`.
 
+## Ruoli utenti (Super Admin / Project Admin)
+
+- Applica lo script SQL `docs/supabase-user-roles.sql` in Supabase SQL Editor.
+- Nuovi campi in `user_permissions`:
+  - `is_super_admin` (controllo totale)
+  - `is_project_admin` (gestione utenti/progetti, ma non super admin)
+- Compatibilita mantenuta con `is_admin` legacy.
+

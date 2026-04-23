@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
-import { normalizeAllowedProjects } from "@/lib/projectAccess";
+import { isProjectAdminUser, isSuperAdminUser, normalizeAllowedProjects } from "@/lib/projectAccess";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -11,7 +11,7 @@ export async function GET() {
   const supabase = getSupabaseAdmin();
   const userRes = await supabase
     .from("user_permissions")
-    .select("email,is_admin,allowed_projects")
+    .select("email,is_admin,is_super_admin,is_project_admin,allowed_projects")
     .eq("email", email)
     .limit(1);
 
@@ -25,11 +25,12 @@ export async function GET() {
   const user = userRes.data?.[0];
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  const isAdmin = Boolean((user as any).is_admin);
+  const isSuperAdmin = isSuperAdminUser(user as any);
+  const isProjectAdmin = isProjectAdminUser(user as any);
   const allowed = normalizeAllowedProjects((user as any).allowed_projects);
 
   let q = supabase.from("projects").select("*").order("project_code", { ascending: true });
-  if (!isAdmin) {
+  if (!isSuperAdmin && !isProjectAdmin) {
     q = q.in("id", allowed.length ? allowed : [0]);
   }
 
@@ -41,6 +42,6 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ ok: true, projects: data ?? [], isAdmin });
+  return NextResponse.json({ ok: true, projects: data ?? [], isSuperAdmin, isProjectAdmin });
 }
 
