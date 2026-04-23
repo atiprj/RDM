@@ -8,6 +8,8 @@ function normalizeProjectId(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const PAGE_SIZE = 1000;
+
 export async function GET(req: Request) {
   const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
@@ -28,20 +30,30 @@ export async function GET(req: Request) {
   }
   const mappedParams = (mapsRes.data ?? []).map((m: any) => String(m.db_column_name));
 
-  const roomsRes = await supabase
-    .from("rooms")
-    .select("room_number,room_name_planned,area,parameters")
-    .eq("project_id", projectId)
-    .order("room_number", { ascending: true });
+  const rooms: any[] = [];
+  let from = 0;
+  while (true) {
+    const roomsRes = await supabase
+      .from("rooms")
+      .select("room_number,room_name_planned,area,parameters")
+      .eq("project_id", projectId)
+      .order("room_number", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (roomsRes.error) {
-    return NextResponse.json(
-      { ok: false, error: `Errore Supabase: ${roomsRes.error.message}` },
-      { status: 500 }
-    );
+    if (roomsRes.error) {
+      return NextResponse.json(
+        { ok: false, error: `Errore Supabase: ${roomsRes.error.message}` },
+        { status: 500 }
+      );
+    }
+
+    const chunk = roomsRes.data ?? [];
+    rooms.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  const rows = (roomsRes.data ?? []).map((r: any) => {
+  const rows = rooms.map((r: any) => {
     const params = (r.parameters ?? {}) as Record<string, unknown>;
     const dyn: Record<string, unknown> = {};
     for (const p of mappedParams) dyn[p] = params[p] ?? "";

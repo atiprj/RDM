@@ -7,41 +7,52 @@ function normalizeProjectId(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const PAGE_SIZE = 1000;
+
 export async function GET(req: Request) {
   const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
   const projectId = normalizeProjectId(url.searchParams.get("projectId"));
+  const rooms: any[] = [];
+  let from = 0;
 
-  let q = supabase
-    .from("rooms")
-    .select(
-      `id,
-       project_id,
-       room_number,
-       room_name_planned,
-       department,
-       created_at,
-       Comments,
-       "Fire Rating",
-       parameters,
-       area,
-       is_synced,
-       last_sync_at`
-    )
-    .order("room_number", { ascending: true });
+  while (true) {
+    let q = supabase
+      .from("rooms")
+      .select(
+        `id,
+         project_id,
+         room_number,
+         room_name_planned,
+         department,
+         created_at,
+         Comments,
+         "Fire Rating",
+         parameters,
+         area,
+         is_synced,
+         last_sync_at`
+      )
+      .order("room_number", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (projectId) q = q.eq("project_id", projectId);
+    if (projectId) q = q.eq("project_id", projectId);
 
-  const { data, error } = await q;
+    const { data, error } = await q;
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: `Errore Supabase: ${error.message}` },
+        { status: 500 }
+      );
+    }
 
-  if (error) {
-    return NextResponse.json(
-      { ok: false, error: `Errore Supabase: ${error.message}` },
-      { status: 500 }
-    );
+    const chunk = data ?? [];
+    rooms.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  return NextResponse.json({ ok: true, rooms: data ?? [] });
+  return NextResponse.json({ ok: true, rooms });
 }
 
 export async function POST(req: Request) {
