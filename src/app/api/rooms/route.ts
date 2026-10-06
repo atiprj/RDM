@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
-
-function normalizeProjectId(v: string | null): number | null {
-  if (!v) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+import { requireProjectAccess } from "@/lib/auth";
 
 const PAGE_SIZE = 1000;
 
 export async function GET(req: Request) {
-  const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
-  const projectId = normalizeProjectId(url.searchParams.get("projectId"));
+  const auth = await requireProjectAccess(url.searchParams.get("projectId"));
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
   const rooms: any[] = [];
   let from = 0;
 
@@ -36,7 +31,7 @@ export async function GET(req: Request) {
       .order("room_number", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
-    if (projectId) q = q.eq("project_id", projectId);
+    q = q.eq("project_id", projectId);
 
     const { data, error } = await q;
     if (error) {
@@ -56,12 +51,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseAdmin();
   const body = (await req.json().catch(() => null)) as
     | { project_id?: number; room_number?: string; room_name_planned?: string }
     | null;
 
-  const project_id = body?.project_id;
+  const auth = await requireProjectAccess(body?.project_id);
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId: project_id } = auth;
   const room_number = String(body?.room_number ?? "").trim();
   const room_name_planned = String(body?.room_name_planned ?? "").trim();
 
@@ -92,22 +88,17 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
   const deleteAll = url.searchParams.get("all") === "true";
-  const projectId = normalizeProjectId(url.searchParams.get("projectId"));
+  const auth = await requireProjectAccess(url.searchParams.get("projectId"));
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
   const ids = url.searchParams
     .getAll("id")
     .map((x) => Number(x))
     .filter((n) => Number.isFinite(n));
 
   if (deleteAll) {
-    if (!projectId) {
-      return NextResponse.json(
-        { ok: false, error: "projectId obbligatorio per eliminazione totale" },
-        { status: 400 }
-      );
-    }
     const { error } = await supabase.from("rooms").delete().eq("project_id", projectId);
     if (error) {
       return NextResponse.json(
@@ -122,7 +113,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: false, error: "Nessun id fornito" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("rooms").delete().in("id", ids);
+  const { error } = await supabase.from("rooms").delete().eq("project_id", projectId).in("id", ids);
 
   if (error) {
     return NextResponse.json(

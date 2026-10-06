@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { canAccessProject, requireProjectAccess } from "@/lib/auth";
 
 type Body = {
   projectId?: number;
@@ -12,12 +12,13 @@ type Body = {
 };
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseAdmin();
   const body = (await req.json().catch(() => null)) as Body | null;
-  const projectId = body?.projectId;
+  const auth = await requireProjectAccess(body?.projectId);
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
   const rows = body?.rows ?? [];
 
-  if (!projectId || !Array.isArray(rows)) {
+  if (!Array.isArray(rows)) {
     return NextResponse.json({ ok: false, error: "Payload non valido" }, { status: 400 });
   }
 
@@ -59,6 +60,16 @@ export async function POST(req: Request) {
     const key = `${finalProjectId}::${db}`;
     // Last row wins when duplicates are present in the same import file.
     byKey.set(key, { project_id: finalProjectId, db_column_name: db, revit_parameter_name: rv });
+  }
+
+  const forbidden = Array.from(new Set(Array.from(byKey.values()).map((r) => r.project_id))).filter(
+    (pid) => !canAccessProject(auth.user, pid)
+  );
+  if (forbidden.length) {
+    return NextResponse.json(
+      { ok: false, error: `Forbidden: progetti non consentiti (${forbidden.join(", ")})` },
+      { status: 403 }
+    );
   }
 
   if (unknownProjectCodes.size) {

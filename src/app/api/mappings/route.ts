@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
-
-function normalizeProjectId(v: string | null): number | null {
-  if (!v) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+import { requireProjectAccess } from "@/lib/auth";
 
 export async function GET(req: Request) {
-  const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
-  const projectId = normalizeProjectId(url.searchParams.get("projectId"));
-  if (!projectId) {
-    return NextResponse.json({ ok: false, error: "projectId mancante" }, { status: 400 });
-  }
+  const auth = await requireProjectAccess(url.searchParams.get("projectId"));
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
 
   const { data, error } = await supabase
     .from("parameter_mappings")
@@ -32,12 +24,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseAdmin();
   const body = (await req.json().catch(() => null)) as
     | { project_id?: number; db_column_name?: string; revit_parameter_name?: string }
     | null;
 
-  const project_id = body?.project_id;
+  const auth = await requireProjectAccess(body?.project_id);
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId: project_id } = auth;
   const db_column_name = String(body?.db_column_name ?? "").trim();
   const revit_parameter_name = String(body?.revit_parameter_name ?? "").trim();
 
@@ -65,14 +58,16 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
+  const auth = await requireProjectAccess(url.searchParams.get("projectId"));
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
   const ids = url.searchParams.getAll("id").map((x) => Number(x)).filter(Number.isFinite);
   if (!ids.length) {
     return NextResponse.json({ ok: false, error: "Nessun id" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("parameter_mappings").delete().in("id", ids);
+  const { error } = await supabase.from("parameter_mappings").delete().eq("project_id", projectId).in("id", ids);
   if (error) {
     return NextResponse.json(
       { ok: false, error: `Errore Supabase: ${error.message}` },

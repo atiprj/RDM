@@ -117,7 +117,7 @@ export default function MappingsPage() {
       return;
     }
     const qs = selectedList.map((id) => `id=${encodeURIComponent(String(id))}`).join("&");
-    const res = await fetch(`/api/mappings?${qs}`, { method: "DELETE" });
+    const res = await fetch(`/api/mappings?projectId=${selectedProjectId}&${qs}`, { method: "DELETE" });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) setError(json.error ?? "Errore delete.");
     else await refresh();

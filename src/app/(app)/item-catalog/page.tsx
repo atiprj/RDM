@@ -108,7 +108,7 @@ export default function ItemCatalogPage() {
     const ids = Object.entries(selectedIds).filter(([, v]) => v).map(([k]) => Number(k));
     if (!ids.length) return setError("Nessun item selezionato.");
     const qs = ids.map((id) => `id=${encodeURIComponent(String(id))}`).join("&");
-    const res = await fetch(`/api/items?${qs}`, { method: "DELETE" });
+    const res = await fetch(`/api/items?projectId=${selectedProjectId}&${qs}`, { method: "DELETE" });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) setError(json.error ?? "Errore delete.");
     else await refresh();

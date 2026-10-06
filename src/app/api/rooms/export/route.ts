@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { requireProjectAccess } from "@/lib/auth";
 import * as XLSX from "xlsx";
-
-function normalizeProjectId(v: string | null): number | null {
-  if (!v) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
 
 const PAGE_SIZE = 1000;
 
 export async function GET(req: Request) {
-  const supabase = getSupabaseAdmin();
   const url = new URL(req.url);
-  const projectId = normalizeProjectId(url.searchParams.get("projectId"));
-  if (!projectId) {
-    return NextResponse.json({ ok: false, error: "projectId mancante" }, { status: 400 });
-  }
+  const auth = await requireProjectAccess(url.searchParams.get("projectId"));
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
 
   const mapsRes = await supabase
     .from("parameter_mappings")
