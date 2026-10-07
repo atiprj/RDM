@@ -221,7 +221,7 @@ export default function RoomsPage() {
       return;
     }
     const qs = ids.map((id) => `id=${encodeURIComponent(String(id))}`).join("&");
-    const res = await fetch(`/api/rooms?${qs}`, { method: "DELETE" });
+    const res = await fetch(`/api/rooms?projectId=${selectedProjectId}&${qs}`, { method: "DELETE" });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) {
       setError(json.error ?? "Errore eliminazione locali.");

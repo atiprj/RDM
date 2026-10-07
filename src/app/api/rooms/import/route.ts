@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { requireProjectAccess } from "@/lib/auth";
 
 type ImportBody = {
   projectId?: number;
@@ -18,12 +18,13 @@ type RoomUpsertRow = {
 const UPSERT_CHUNK_SIZE = 100;
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseAdmin();
   const body = (await req.json().catch(() => null)) as ImportBody | null;
-  const projectId = body?.projectId;
+  const auth = await requireProjectAccess(body?.projectId);
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
   const rows = body?.rows ?? [];
 
-  if (!projectId || !Array.isArray(rows)) {
+  if (!Array.isArray(rows)) {
     return NextResponse.json({ ok: false, error: "Payload non valido" }, { status: 400 });
   }
 

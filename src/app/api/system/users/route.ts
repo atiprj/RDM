@@ -1,25 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { requireAdmin as requireAdminSession } from "@/lib/auth";
 import { isProjectAdminUser, isSuperAdminUser } from "@/lib/projectAccess";
 
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const email = cookieStore.get("user_email")?.value?.toLowerCase().trim();
-  if (!email) return { ok: false as const, status: 401, error: "Unauthorized" };
-
-  const supabase = getSupabaseAdmin();
-  const me = await supabase
-    .from("user_permissions")
-    .select("email,is_admin,is_super_admin,is_project_admin,allowed_projects")
-    .eq("email", email)
-    .limit(1);
-  if (me.error) return { ok: false as const, status: 500, error: me.error.message };
-  const user = me.data?.[0] as any;
-  if (!isSuperAdminUser(user) && !isProjectAdminUser(user)) {
-    return { ok: false as const, status: 403, error: "Forbidden" };
+  const auth = await requireAdminSession();
+  if (!auth.ok) {
+    const status = auth.response.status;
+    return { ok: false as const, status, error: status === 403 ? "Forbidden" : "Unauthorized" };
   }
-  return { ok: true as const, supabase, me: user };
+  return { ok: true as const, supabase: auth.supabase, me: auth.user as any };
 }
 
 function canManageTarget(actor: any, target: any): boolean {
