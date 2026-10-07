@@ -1,17 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { useProjectContext } from "@/lib/projectContext";
-
-// Il viewer usa WebGL: va caricato solo nel browser.
-const RoomViewer3D = dynamic(() => import("@/components/RoomViewer3D"), {
-  ssr: false,
-  loading: () => <div className="p-6 text-sm text-slate-600">Caricamento viewer 3D...</div>,
-});
-
-// Finché non esistono le standard room esportate da Revit, tutti i locali mostrano il modello dimostrativo.
-const DEMO_MODEL_URL = "/standard-rooms/DEMO-AMB-01/v1.glb";
+import RoomGeometryPanel from "@/components/RoomGeometryPanel";
 
 type RoomRow = {
   id: number;
@@ -240,7 +231,9 @@ export default function RoomInspectorPage() {
           <h2 className="mb-3 text-lg font-semibold">
             Vista 3D · {selectedRoom.room_number} {selectedRoom.room_name_planned ?? ""}
           </h2>
-          <RoomViewer3D modelUrl={DEMO_MODEL_URL} roomArea={selectedRoom.area} isDemo />
+          {selectedProjectId ? (
+            <RoomGeometryPanel projectId={selectedProjectId} roomId={selectedRoom.id} />
+          ) : null}
         </section>
       ) : null}
     </main>
