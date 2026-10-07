@@ -107,6 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <NavLink href="/mappings" label={`🔗 ${t("mappings")}`} />
             <NavLink href="/item-catalog" label={`📦 ${t("itemCatalog")}`} />
             <NavLink href="/system" label={`⚙️ ${t("system")}`} />
+            <NavLink href="/revit-token" label="🔑 Token Revit" />
           </nav>
         </header>
 
