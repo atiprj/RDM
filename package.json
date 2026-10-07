@@ -16,17 +16,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.1",
     "@supabase/supabase-js": "^2.99.0",
     "@types/node": "^25.4.0",
     "@types/react": "^19.2.14",
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "three": "^0.186.1",
     "typescript": "^5.9.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
+    "@types/three": "^0.186.0",
     "autoprefixer": "^10.4.27",
     "eslint": "^8.57.0",
     "eslint-config-next": "^16.1.6",
