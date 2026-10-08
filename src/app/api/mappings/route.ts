@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/auth";
+import { DEFAULT_DIRECTION, parseDirection } from "@/lib/mappingDirection";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabase
     .from("parameter_mappings")
-    .select("id,project_id,db_column_name,revit_parameter_name")
+    .select("id,project_id,db_column_name,revit_parameter_name,direction")
     .eq("project_id", projectId)
     .order("db_column_name", { ascending: true });
 
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
-    | { project_id?: number; db_column_name?: string; revit_parameter_name?: string }
+    | { project_id?: number; db_column_name?: string; revit_parameter_name?: string; direction?: string }
     | null;
 
   const auth = await requireProjectAccess(body?.project_id);
@@ -41,10 +42,12 @@ export async function POST(req: Request) {
     );
   }
 
+  const direction = parseDirection(body?.direction) ?? DEFAULT_DIRECTION;
   const { error } = await supabase.from("parameter_mappings").insert({
     project_id,
     db_column_name,
     revit_parameter_name,
+    direction,
   });
 
   if (error) {
@@ -54,6 +57,32 @@ export async function POST(req: Request) {
     );
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+/** Cambia la direzione di sincronizzazione di un mapping esistente. */
+export async function PATCH(req: Request) {
+  const body = (await req.json().catch(() => null)) as
+    | { project_id?: number; id?: number; direction?: string }
+    | null;
+  const auth = await requireProjectAccess(body?.project_id);
+  if (!auth.ok) return auth.response;
+  const { supabase, projectId } = auth;
+  const id = Number(body?.id);
+  const direction = parseDirection(body?.direction);
+  if (!Number.isFinite(id) || !direction) {
+    return NextResponse.json({ ok: false, error: "id o direzione non validi" }, { status: 400 });
+  }
+  const { data, error } = await supabase
+    .from("parameter_mappings")
+    .update({ direction })
+    .eq("project_id", projectId)
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    return NextResponse.json({ ok: false, error: `Errore Supabase: ${error.message}` }, { status: 500 });
+  }
+  if (!data?.length) return NextResponse.json({ ok: false, error: "Mapping non trovato" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 

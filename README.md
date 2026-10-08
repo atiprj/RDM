@@ -68,3 +68,14 @@ Rooms, items e mappings (lettura, scrittura, import, export, cancellazione) rich
   verso Supabase Storage), `POST /api/revit/room-geometry/commit`.
 - **Viewer:** selezionando un locale si vede la Main del suo tipo SR; *Compare* affianca un altro locale dello
   stesso tipo con camera sincronizzata e confronto dell'inventario (attrezzature e arredi).
+
+## Direzione dei parametri mappati (Sinc Locali)
+
+Eseguire una volta `docs/supabase-mapping-direction.sql`. In *Mappings* ogni parametro ha una direzione:
+
+- **Web → Revit** (default): Sinc Locali scrive in Revit il valore del sito.
+- **Revit → Web**: Sinc Locali legge il parametro Revit e aggiorna `rooms.parameters` sul sito
+  (un valore vuoto in Revit svuota il campo). Tipico per `SR_Code` quando il tipo SR è compilato nel modello.
+
+Nell'import Excel la colonna opzionale `direction` accetta `web_to_revit` / `revit_to_web`;
+se manca, la direzione già salvata non cambia.

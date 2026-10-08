@@ -10,7 +10,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabase
     .from("parameter_mappings")
-    .select("db_column_name,revit_parameter_name")
+    .select("db_column_name,revit_parameter_name,direction")
     .eq("project_id", projectId)
     .order("db_column_name", { ascending: true });
 

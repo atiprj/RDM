@@ -3,8 +3,40 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useProjectContext } from "@/lib/projectContext";
+import { DEFAULT_DIRECTION, DIRECTION_LABELS, type MappingDirection } from "@/lib/mappingDirection";
 
-type Mapping = { id: number; db_column_name: string; revit_parameter_name: string };
+type Mapping = {
+  id: number;
+  db_column_name: string;
+  revit_parameter_name: string;
+  direction?: MappingDirection | null;
+};
+
+function DirectionSelect({
+  value,
+  onChange,
+  name,
+}: {
+  value?: MappingDirection;
+  onChange?: (v: MappingDirection) => void;
+  name?: string;
+}) {
+  return (
+    <select
+      name={name}
+      value={value}
+      defaultValue={value === undefined ? DEFAULT_DIRECTION : undefined}
+      onChange={onChange ? (e) => onChange(e.target.value as MappingDirection) : undefined}
+      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+    >
+      {(Object.keys(DIRECTION_LABELS) as MappingDirection[]).map((d) => (
+        <option key={d} value={d}>
+          {DIRECTION_LABELS[d]}
+        </option>
+      ))}
+    </select>
+  );
+}
 const IMPORT_CHUNK_SIZE = 300;
 
 export default function MappingsPage() {
@@ -69,6 +101,7 @@ export default function MappingsPage() {
       project_code: String(r["project_code"] ?? "").trim(),
       db_column_name: String(r["db_column_name"] ?? "").trim(),
       revit_parameter_name: String(r["revit_parameter_name"] ?? "").trim(),
+      direction: String(r["direction"] ?? "").trim(),
     }));
 
     for (let i = 0; i < norm.length; i += IMPORT_CHUNK_SIZE) {
@@ -94,6 +127,7 @@ export default function MappingsPage() {
     const fd = new FormData(form);
     const db_column_name = String(fd.get("db_column_name") ?? "").trim();
     const revit_parameter_name = String(fd.get("revit_parameter_name") ?? "").trim();
+    const direction = String(fd.get("direction") ?? DEFAULT_DIRECTION);
     if (!db_column_name || !revit_parameter_name) {
       setError("Compila entrambi i campi.");
       return;
@@ -101,12 +135,27 @@ export default function MappingsPage() {
     const res = await fetch("/api/mappings", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ project_id: selectedProjectId, db_column_name, revit_parameter_name }),
+      body: JSON.stringify({ project_id: selectedProjectId, db_column_name, revit_parameter_name, direction }),
     });
     const json = (await res.json()) as { ok: boolean; error?: string };
     if (!json.ok) setError(json.error ?? "Errore inserimento mapping.");
     else {
       form.reset();
+      await refresh();
+    }
+  }
+
+  async function changeDirection(m: Mapping, direction: MappingDirection) {
+    setError(null);
+    setMappings((prev) => prev.map((x) => (x.id === m.id ? { ...x, direction } : x)));
+    const res = await fetch("/api/mappings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: selectedProjectId, id: m.id, direction }),
+    });
+    const json = (await res.json()) as { ok: boolean; error?: string };
+    if (!json.ok) {
+      setError(json.error ?? "Errore aggiornamento direzione.");
       await refresh();
     }
   }
@@ -159,7 +208,9 @@ export default function MappingsPage() {
             />
             <div className="text-xs text-slate-600">
               Colonne richieste: <span className="font-mono">db_column_name</span>,{" "}
-              <span className="font-mono">revit_parameter_name</span>. Opzionali per import multi-progetto:{" "}
+              <span className="font-mono">revit_parameter_name</span>. Opzionale{" "}
+              <span className="font-mono">direction</span> (<span className="font-mono">web_to_revit</span> o{" "}
+              <span className="font-mono">revit_to_web</span>). Opzionali per import multi-progetto:{" "}
               <span className="font-mono">project_id</span> oppure{" "}
               <span className="font-mono">project_code</span>.
             </div>
@@ -170,7 +221,7 @@ export default function MappingsPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">➕ Add Single Mapping</h2>
         <form
-          className="mt-4 grid gap-3 sm:grid-cols-3"
+          className="mt-4 grid gap-3 sm:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
             addSingle(e.currentTarget);
@@ -186,7 +237,8 @@ export default function MappingsPage() {
             placeholder="Revit Parameter Name (es: Revit_Floor_Finish)"
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
           />
-          <div className="sm:col-span-3">
+          <DirectionSelect name="direction" />
+          <div className="sm:col-span-4">
             <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">
               Save Mapping
             </button>
@@ -205,6 +257,10 @@ export default function MappingsPage() {
           </button>
         </div>
 
+        <p className="mt-2 text-xs text-slate-600">
+          <b>Web → Revit</b>: Sinc Locali scrive in Revit il valore del sito. <b>Revit → Web</b>: Sinc Locali legge il
+          parametro in Revit e aggiorna il sito (un valore vuoto in Revit svuota il campo sul sito).
+        </p>
         <div className="mt-4 overflow-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -212,18 +268,19 @@ export default function MappingsPage() {
                 <th className="px-3 py-2">Del</th>
                 <th className="px-3 py-2">DB column</th>
                 <th className="px-3 py-2">Revit parameter</th>
+                <th className="px-3 py-2">Direzione Sinc</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-3 py-3 text-slate-600" colSpan={3}>
+                  <td className="px-3 py-3 text-slate-600" colSpan={4}>
                     Caricamento...
                   </td>
                 </tr>
               ) : mappings.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3 text-slate-600" colSpan={3}>
+                  <td className="px-3 py-3 text-slate-600" colSpan={4}>
                     Nessun mapping. Aggiungi manualmente o importa Excel.
                   </td>
                 </tr>
@@ -241,6 +298,12 @@ export default function MappingsPage() {
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">{m.db_column_name}</td>
                     <td className="px-3 py-2">{m.revit_parameter_name}</td>
+                    <td className="px-3 py-2">
+                      <DirectionSelect
+                        value={m.direction ?? DEFAULT_DIRECTION}
+                        onChange={(d) => changeDirection(m, d)}
+                      />
+                    </td>
                   </tr>
                 ))
               )}
